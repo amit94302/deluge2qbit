@@ -1,0 +1,46 @@
+name: build-and-push-docker
+
+on:
+  workflow_dispatch: # allows the workflow to be run manually when desired
+    branches:
+      - main
+  # schedule: # runs this workflow at the scheduled time (uses UTC, adjust for your timezone)
+  #   - cron: "00 1 * * *" # at 06:30 AM daily (01:00 AM UTC, add 5:30 in UTC to get the IST)
+  # push:
+  #   branches:
+  #     - main
+
+jobs:
+  docker:
+    runs-on: docker
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Docker meta
+        id: meta
+        run: |
+          echo "IMAGE_NAME=deluge2qbit" >> $GITHUB_ENV
+
+      - name: Log in to Docker Hub
+        run: echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Log in to GHCR
+        run: echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
+        env:
+          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+
+      - name: Build image
+        run: |
+          docker build -t amit94302/deluge2qbit:latest .
+          docker tag amit94302/deluge2qbit:latest ghcr.io/amit94302/deluge2qbit:latest
+
+      - name: Push to Docker Hub
+        run: docker push amit94302/deluge2qbit:latest
+
+      - name: Push to GHCR
+        run: docker push ghcr.io/amit94302/deluge2qbit:latest

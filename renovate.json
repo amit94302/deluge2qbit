@@ -1,0 +1,12 @@
+{
+  "extends": ["config:base"],
+  "docker": {
+    "enabled": true
+  },
+  "packageRules": [
+    {
+      "matchManagers": ["pip_requirements"],
+      "enabled": true
+    }
+  ]
+}

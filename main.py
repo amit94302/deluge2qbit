@@ -1,4 +1,5 @@
 import os
+import sys
 import shutil
 from pathlib import Path
 import time
@@ -87,6 +88,9 @@ for torrent_id, data in torrents.items():
 
   qbit_save_path = os.getenv("QBIT_SAVE_PATH", deluge_save_path).strip()
   actual_path = Path(qbit_save_path) / name
+  # If actual_path is not a directory (or doesn't exist yet), fallback
+  if not actual_path.is_dir():
+    actual_path = Path(qbit_save_path)
 
   # === Make sure actual_path exists ===
   if not actual_path.exists():
@@ -112,8 +116,7 @@ for torrent_id, data in torrents.items():
   }
 
   if QBIT_ADD_TAGS:
-    add_args["tags"] = os.getenv("QBIT_CUSTOM_TAG", deluge_label).strip()
-    # add_args["tags"] = deluge_label
+    add_args["tags"] = [os.getenv("QBIT_CUSTOM_TAG", deluge_label).strip()]
   
   if QBIT_SET_CATEGORY:
     qbit_category = CATEGORY_MAP.get(deluge_label, deluge_label)  # fallback to label if not mapped
@@ -133,7 +136,8 @@ for torrent_id, data in torrents.items():
 
   if not torrent:
     print(f"⚠️ Torrent {name} not found in qBittorrent!")
-    sys.exit(1)
+    continue
+    # sys.exit(1)
 
   # === Get file list ===
   files = qbt.torrents_files(torrent.hash)
@@ -158,7 +162,7 @@ for torrent_id, data in torrents.items():
 
   # === Remove from Deluge ===
   if DELUGE_REMOVE:
-    deluge.call("core.remove_torrent", torrent_id, True)
+    deluge.call("core.remove_torrent", torrent_id, False)
     print(f"🗑️ Removed from Deluge: {name}")
   else:
     print(f"🔁 Kept in Deluge (DELUGE_REMOVE=false): {name}")

@@ -1,12 +1,25 @@
 import os
 import sys
 import shutil
-from pathlib import Path
 import time
+import logging
+from pathlib import Path
 from deluge_client import DelugeRPCClient
 import qbittorrentapi
+from qbittorrentapi.exceptions import APIConnectionError, NotFound404Error
+import config
+
+# --- Setup Logging ---
+logging.basicConfig(
+  level=logging.INFO,
+  format="%(asctime)s - %(levelname)s - %(message)s",
+  stream=sys.stdout,
+)
 
 def decode_bytes(d):
+  """
+  Recursively decodes bytes to strings in a dictionary or list.
+  """
   if isinstance(d, dict):
     return {k.decode() if isinstance(k, bytes) else k: decode_bytes(v) for k, v in d.items()}
   elif isinstance(d, list):
@@ -16,153 +29,178 @@ def decode_bytes(d):
   else:
     return d
 
-def getenv_bool(name: str, default: str = "true") -> bool:
-  return os.getenv(name, default).strip().lower() in ["1", "true", "yes"]
+def connect_deluge():
+  """
+  Connects to the Deluge RPC server.
+  """
+  logging.info("🔌 Connecting to Deluge...")
+  try:
+    client = DelugeRPCClient(config.DELUGE_HOST, config.DELUGE_PORT, config.DELUGE_USER, config.DELUGE_PASS)
+    client.connect()
+    logging.info("✅ Connected to Deluge.")
+    return client
+  except Exception as e:
+    logging.error(f"🔥 Failed to connect to Deluge: {e}")
+    sys.exit(1)
 
-def parse_label_map(var: str) -> dict:
-  raw = os.getenv(var, "")
-  lines = raw.splitlines() if "\n" in raw else raw.split(",")
-  return {
-    k.strip().lower(): v.strip()
-    for line in lines if "=" in line
-    for k, v in [line.strip().split("=", 1)]
-  }
+def connect_qbittorrent():
+  """
+  Connects to the qBittorrent Web API.
+  """
+  logging.info("🔐 Connecting to qBittorrent...")
+  try:
+    client = qbittorrentapi.Client(
+      host=f"http://{config.QBIT_HOST}:{config.QBIT_PORT}",
+      username=config.QBIT_USER,
+      password=config.QBIT_PASS,
+      REQUESTS_ARGS={"timeout": 30}
+    )
+    client.auth_log_in()
+    logging.info("✅ Connected to qBittorrent.")
+    return client
+  except APIConnectionError as e:
+    logging.error(f"🔥 Failed to connect to qBittorrent: {e}")
+    sys.exit(1)
 
-# === Config from environment ===
-DELUGE_HOST = os.getenv("DELUGE_HOST", "deluge")
-DELUGE_PORT = int(os.getenv("DELUGE_PORT", 58846))
-DELUGE_USER = os.getenv("DELUGE_USER", "admin")
-DELUGE_PASS = os.getenv("DELUGE_PASS", "delugepass")
-DELUGE_MIGRATE_LABELS = [label.strip().lower() for label in os.getenv("DELUGE_MIGRATE_LABELS", "").split(",") if label.strip()]
-
-QBIT_HOST = os.getenv("QBIT_HOST", "qbittorrent")
-QBIT_PORT = int(os.getenv("QBIT_PORT", 8080))
-QBIT_USER = os.getenv("QBIT_USER", "admin")
-QBIT_PASS = os.getenv("QBIT_PASS", "adminadmin")
-QBIT_SKIP_EXTENSIONS = os.getenv("QBIT_SKIP_EXTENSIONS", ".nfo,.info,.txt,.jpg,.png,.exe").split(",")
-
-QBIT_SKIP_EXTENSIONS = [ext.strip().lower() for ext in QBIT_SKIP_EXTENSIONS if ext.strip()]
-
-QBIT_SET_CATEGORY = getenv_bool("QBIT_SET_CATEGORY", "true")
-QBIT_ADD_TAGS = getenv_bool("QBIT_ADD_TAGS", "true")
-QBIT_RESUME = getenv_bool("QBIT_RESUME", "true")
-DELUGE_REMOVE = getenv_bool("DELUGE_REMOVE", "true")
-
-TORRENT_FILE_DEST_PATH = os.getenv("TORRENT_FILE_DEST_PATH", "/torrents")
-DELUGE_STATE_PATH = os.getenv("DELUGE_STATE_PATH", "/deluge/state")
-os.makedirs(TORRENT_FILE_DEST_PATH, exist_ok=True)
-
-CATEGORY_MAP = parse_label_map("QBIT_CATEGORY_MAP")
-
-print("🔌 Connecting to Deluge...")
-deluge = DelugeRPCClient(DELUGE_HOST, DELUGE_PORT, DELUGE_USER, DELUGE_PASS)
-deluge.connect()
-
-fields = ['name', 'label', 'save_path']
-raw_torrents = deluge.call('core.get_torrents_status', {}, fields)
-torrents = {k.decode(): decode_bytes(v) for k, v in raw_torrents.items()}
-
-print("🔐 Connecting to qBittorrent...")
-qbt = qbittorrentapi.Client(host=f"http://{QBIT_HOST}:{QBIT_PORT}", username=QBIT_USER, password=QBIT_PASS)
-qbt.auth_log_in()
-
-print(f"🔍 Filtering torrents in Deluge with label(s): {DELUGE_MIGRATE_LABELS}")
-for torrent_id, data in torrents.items():
-  name = data.get("name", "unknown")
-  deluge_label = data.get("label", "").strip().lower()
-  deluge_save_path = data.get("save_path", "/downloads").strip()
-
-  # print(f"🧾 Checking: {name} (deluge_label={deluge_label})")
-
-  if deluge_label not in DELUGE_MIGRATE_LABELS:
-    continue
-
-  # === Step 1: Copy .torrent file from Deluge config ===
-  deluge_torrent_file_path = os.path.join(DELUGE_STATE_PATH, f"{torrent_id}.torrent")
-  if not os.path.isfile(deluge_torrent_file_path):
-    print(f"⚠️  Torrent file missing: {deluge_torrent_file_path}")
-    continue
-
-  qbit_torrent_file_path = os.path.join(TORRENT_FILE_DEST_PATH, f"{name}.torrent")
-  shutil.copyfile(deluge_torrent_file_path, qbit_torrent_file_path)
-
-  qbit_save_path = os.getenv("QBIT_SAVE_PATH", deluge_save_path).strip()
-  actual_path = Path(qbit_save_path) / name
-  # If actual_path is not a directory (or doesn't exist yet), fallback
-  if not actual_path.is_dir():
-    actual_path = Path(qbit_save_path)
-
-  # === Make sure actual_path exists ===
-  if not actual_path.exists():
-    print(f"⚠️ Path does not exist: {actual_path}")
-    continue
-
-  # === Step 2: Delete unwanted files from Deluge download folder ===
-  for item in Path(actual_path).glob("*"):
-    if item.suffix.lower() in QBIT_SKIP_EXTENSIONS:
-      try:
-        print(f"🗑️ Deleting skipped file from disk: {item}")
-        item.unlink()
-      except Exception as e:
-        print(f"⚠️ Failed to delete {item}: {e}")
-  
-  # === Step 3: Add to qBittorrent (paused) ===
-  print(f"➡️  Adding {name} to qBittorrent...")
+def add_torrent_to_qbit(qbt, torrent_file, save_path, deluge_label, name):
+  """
+  Adds a torrent to qBittorrent with the specified settings.
+  """
+  logging.info(f"➡️ Adding {name} to qBittorrent...")
   add_args = {
-    "torrent_files": str(qbit_torrent_file_path),
-    "save_path": str(actual_path),
+    "torrent_files": str(torrent_file),
+    "save_path": str(save_path),
     "is_paused": True,
     "autoTMM": False,
   }
 
-  if QBIT_ADD_TAGS:
-    add_args["tags"] = [os.getenv("QBIT_CUSTOM_TAGS", deluge_label).strip()]
-  
-  if QBIT_SET_CATEGORY:
-    qbit_category = CATEGORY_MAP.get(deluge_label, deluge_label)  # fallback to label if not mapped
+  if config.QBIT_ADD_TAGS:
+    tags = config.QBIT_CUSTOM_TAGS or deluge_label
+    add_args["tags"] = [tag.strip() for tag in tags.split(",")]
+
+  if config.QBIT_SET_CATEGORY:
+    qbit_category = config.QBIT_CATEGORY_MAP.get(deluge_label, deluge_label)
     add_args["category"] = qbit_category
-    print(f"🏷️ Setting category '{qbit_category}' for label '{deluge_label}'")
+    logging.info(f"🏷️ Setting category '{qbit_category}' for label '{deluge_label}'")
 
   qbt.torrents_add(**add_args)
 
-  # === Wait for qBittorrent to register the torrent ===
-  time.sleep(2)  # Important: Wait for metadata to load
-
-  # === Find the added torrent by hash or name ===
-  torrent = next(
-    (t for t in qbt.torrents_info() if name in t.name),
-    None
-  )
-
+  # --- Wait for torrent to appear in qBittorrent ---
+  torrent = wait_for_torrent(qbt, name)
   if not torrent:
-    print(f"⚠️ Torrent {name} not found in qBittorrent!")
-    continue
-    # sys.exit(1)
+    logging.error(f"⚠️ Torrent {name} not found in qBittorrent after adding!")
+    return
 
-  # === Get file list ===
+  # --- Unselect unwanted files ---
   files = qbt.torrents_files(torrent.hash)
+  file_ids_to_skip = [f.index for f in files if any(f.name.lower().endswith(ext) for ext in config.QBIT_SKIP_EXTENSIONS)]
+  if file_ids_to_skip:
+    logging.info(f"❌ Skipping {len(file_ids_to_skip)} files with unwanted extensions.")
+    qbt.torrents_file_priority(torrent.hash, file_ids=file_ids_to_skip, priority=0)
 
-  # === Unselect files with unwanted extensions ===
-  for f in files:
-    file_name = f.name.lower()
-    if any(file_name.endswith(ext) for ext in QBIT_SKIP_EXTENSIONS):
-      print(f"❌ Skipping: {f.name}")
-      qbt.torrents_file_priority(torrent.hash, file_ids=[f.index], priority=0)
-    else:
-      print(f"✅ Keeping: {f.name}")
-
-  # === Resume torrent ===
-  if QBIT_RESUME:
+  # --- Resume torrent ---
+  if config.QBIT_RESUME:
     qbt.torrents_resume(torrent.hash)
-    print(f"🚀 Resumed in qBittorrent: {name}")
+    logging.info(f"🚀 Resumed in qBittorrent: {name}")
   else:
-    print(f"⏸️  Skipped resume (QBIT_RESUME=false): {name}")
+    logging.info(f"⏸️ Skipped resume (QBIT_RESUME=false): {name}")
 
-  print(f"✅ Added: {name}")
+  logging.info(f"✅ Added: {name}")
 
-  # === Remove from Deluge ===
-  if DELUGE_REMOVE:
-    deluge.call("core.remove_torrent", torrent_id, False)
-    print(f"🗑️ Removed from Deluge: {name}")
-  else:
-    print(f"🔁 Kept in Deluge (DELUGE_REMOVE=false): {name}")
+def wait_for_torrent(qbt, name, timeout=30):
+  """
+  Waits for a torrent to appear in qBittorrent by name.
+  """
+  start_time = time.time()
+  while time.time() - start_time < timeout:
+    try:
+      torrent = next((t for t in qbt.torrents_info() if name in t.name), None)
+      if torrent:
+        return torrent
+    except NotFound404Error:
+      # Torrent might not be registered yet
+      pass
+    time.sleep(1)
+  return None
+
+def process_torrents(deluge, qbt):
+  """
+  Fetches torrents from Deluge and migrates them to qBittorrent based on labels.
+  """
+  fields = ['name', 'label', 'save_path']
+  try:
+    raw_torrents = deluge.call('core.get_torrents_status', {}, fields)
+    torrents = {k.decode(): decode_bytes(v) for k, v in raw_torrents.items()}
+  except Exception as e:
+    logging.error(f"🔥 Failed to get torrents from Deluge: {e}")
+    return
+
+  logging.info(f"🔍 Filtering torrents in Deluge with label(s): {config.DELUGE_MIGRATE_LABELS}")
+
+  for torrent_id, data in torrents.items():
+    name = data.get("name", "unknown")
+    deluge_label = data.get("label", "").strip().lower()
+    deluge_save_path = data.get("save_path", "/downloads").strip()
+
+    if deluge_label not in config.DELUGE_MIGRATE_LABELS:
+      continue
+
+    logging.info(f"Processing torrent: {name}")
+
+    # --- Step 1: Copy .torrent file ---
+    deluge_torrent_file_path = os.path.join(config.DELUGE_STATE_PATH, f"{torrent_id}.torrent")
+    if not os.path.isfile(deluge_torrent_file_path):
+      logging.warning(f"⚠️ Torrent file missing, skipping: {deluge_torrent_file_path}")
+      continue
+
+    qbit_torrent_file_path = os.path.join(config.TORRENT_FILE_DEST_PATH, f"{name}.torrent")
+    shutil.copyfile(deluge_torrent_file_path, qbit_torrent_file_path)
+
+    # --- Step 2: Determine save path and delete unwanted files ---
+    qbit_save_path = config.QBIT_SAVE_PATH or deluge_save_path
+    actual_path = Path(qbit_save_path) / name
+    if not actual_path.is_dir():
+      actual_path = Path(qbit_save_path)
+
+    # if not actual_path.exists():
+    #   logging.warning(f"⚠️ Path does not exist, skipping: {actual_path}")
+    #   continue
+
+    for item in Path(actual_path).glob("*"):
+      if item.suffix.lower() in config.QBIT_SKIP_EXTENSIONS:
+        try:
+          logging.info(f"🗑️ Deleting skipped file from disk: {item}")
+          item.unlink()
+        except Exception as e:
+          logging.warning(f"⚠️ Failed to delete {item}: {e}")
+
+    # --- Step 3: Add to qBittorrent ---
+    try:
+      add_torrent_to_qbit(qbt, qbit_torrent_file_path, actual_path, deluge_label, name)
+    except Exception as e:
+      logging.error(f"🔥 Failed to add torrent {name} to qBittorrent: {e}")
+      continue
+
+    # --- Step 4: Remove from Deluge ---
+    if config.DELUGE_REMOVE:
+      try:
+        deluge.call("core.remove_torrent", torrent_id, False)
+        logging.info(f"🗑️ Removed from Deluge: {name}")
+      except Exception as e:
+        logging.error(f"🔥 Failed to remove torrent {name} from Deluge: {e}")
+    else:
+      logging.info(f"🔁 Kept in Deluge (DELUGE_REMOVE=false): {name}")
+
+
+def main():
+  """
+  Main function to run the torrent migration script.
+  """
+  os.makedirs(config.TORRENT_FILE_DEST_PATH, exist_ok=True)
+  deluge_client = connect_deluge()
+  qbt_client = connect_qbittorrent()
+  process_torrents(deluge_client, qbt_client)
+  logging.info("🎉 Migration complete.")
+
+if __name__ == "__main__":
+  main()

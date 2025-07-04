@@ -33,7 +33,7 @@ DELUGE_HOST = os.getenv("DELUGE_HOST", "deluge")
 DELUGE_PORT = int(os.getenv("DELUGE_PORT", 58846))
 DELUGE_USER = os.getenv("DELUGE_USER", "admin")
 DELUGE_PASS = os.getenv("DELUGE_PASS", "delugepass")
-MIGRATE_LABELS = [label.strip().lower() for label in os.getenv("MIGRATE_LABELS", "").split(",") if label.strip()]
+DELUGE_MIGRATE_LABELS = [label.strip().lower() for label in os.getenv("DELUGE_MIGRATE_LABELS", "").split(",") if label.strip()]
 
 QBIT_HOST = os.getenv("QBIT_HOST", "qbittorrent")
 QBIT_PORT = int(os.getenv("QBIT_PORT", 8080))
@@ -66,7 +66,7 @@ print("🔐 Connecting to qBittorrent...")
 qbt = qbittorrentapi.Client(host=f"http://{QBIT_HOST}:{QBIT_PORT}", username=QBIT_USER, password=QBIT_PASS)
 qbt.auth_log_in()
 
-print(f"🔍 Filtering torrents in Deluge with label(s): {MIGRATE_LABELS}")
+print(f"🔍 Filtering torrents in Deluge with label(s): {DELUGE_MIGRATE_LABELS}")
 for torrent_id, data in torrents.items():
   name = data.get("name", "unknown")
   deluge_label = data.get("label", "").strip().lower()
@@ -74,7 +74,7 @@ for torrent_id, data in torrents.items():
 
   # print(f"🧾 Checking: {name} (deluge_label={deluge_label})")
 
-  if deluge_label not in MIGRATE_LABELS:
+  if deluge_label not in DELUGE_MIGRATE_LABELS:
     continue
 
   # === Step 1: Copy .torrent file from Deluge config ===
@@ -116,7 +116,7 @@ for torrent_id, data in torrents.items():
   }
 
   if QBIT_ADD_TAGS:
-    add_args["tags"] = [os.getenv("QBIT_CUSTOM_TAG", deluge_label).strip()]
+    add_args["tags"] = [os.getenv("QBIT_CUSTOM_TAGS", deluge_label).strip()]
   
   if QBIT_SET_CATEGORY:
     qbit_category = CATEGORY_MAP.get(deluge_label, deluge_label)  # fallback to label if not mapped

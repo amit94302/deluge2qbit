@@ -10,14 +10,14 @@ services:
       - 'DELUGE_PASS=DelugePassword'
       - 'MIGRATE_LABELS=radarr-imported,sonarr-imported' # Labels to be considered for migration
       - QBIT_HOST=qbittorrent
-      - QBIT_PORT=8090
+      - QBIT_PORT=8080
       - QBIT_USER=admin
       - 'QBIT_PASS=QbittorrentPassword'
-      - 'QBIT_SAVE_PATH=/media/downloads/torrents' # Added this to avoid copy and delete, instead of move (when changing save path in qBittorrent)
+      - 'QBIT_SAVE_PATH=/downloads/qbit' # Added this to avoid copy and delete, instead of move (when changing save path in qBittorrent)
       - QBIT_SET_CATEGORY=true
       - QBIT_CATEGORY_MAP="radarr-imported=Movies,sonarr-imported=TV Shows"
       - QBIT_ADD_TAGS=true # To add either custom tag (if defined) or deluge label as tag in qBittorrent
-      - QBIT_CUSTOM_TAG=deluge2qbit
+      - QBIT_CUSTOM_TAGS=deluge2qbit,torrent-migrator
       - 'QBIT_SKIP_EXTENSIONS=.nfo,.info,.txt,.jpg,.png,.exe,.sfv' # File extensions to be deleted and skipped from downloading in qBittorrent
       - QBIT_RESUME=true # Resume torrent after adding in qBittorrent
       - DELUGE_REMOVE=true # Remove from Deluge after migration

@@ -8,7 +8,7 @@ services:
       - DELUGE_PORT=58846
       - DELUGE_USER=admin
       - 'DELUGE_PASS=DelugePassword'
-      - 'MIGRATE_LABELS=radarr-imported,sonarr-imported' # Labels to be considered for migration
+      - 'DELUGE_MIGRATE_LABELS=radarr-imported,sonarr-imported' # Labels to be considered for migration
       - QBIT_HOST=qbittorrent
       - QBIT_PORT=8080
       - QBIT_USER=admin

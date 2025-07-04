@@ -39,7 +39,7 @@ docker run --rm \
   amit94302/deluge2qbit
 ```
 
-Or use with Docker Compose.
+Or use with [Docker Compose](docker-compose.yml).
 
 ---
 
@@ -61,7 +61,7 @@ Or use with Docker Compose.
 | `QBIT_ADD_TAGS`          | Enable tagging in qBittorrent                                      | `true`                                |
 | `QBIT_CUSTOM_TAGS`       | Comma-separated custom tags (deluge label will be used if not set) | `true`                                |
 | `QBIT_SAVE_PATH`         | Override default save path                                         | `/downloads/qbit`                     |
-| `QBIT_SKIP_EXTENSIONS`   | Extensions to delete + skip (by label)                             | `.nfo,.info,.txt,.jpg,.png,.exe,.sfv` |
+| `QBIT_SKIP_EXTENSIONS`   | Extensions to delete from disk + skip downloading in qBittorrent   | `.nfo,.info,.txt,.jpg,.png,.exe,.sfv` |
 | `QBIT_RESUME`            | Whether to resume torrents after adding                            | `true`                                |
 | `DELUGE_REMOVE`          | Whether to remove torrent from Deluge                              | `true`                                |
 | `DELUGE_STATE_PATH`      | Deluge state path                                                  | `/deluge/state`                       |

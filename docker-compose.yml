@@ -4,28 +4,34 @@ services:
     image: amit94302/deluge2qbit:latest
     container_name: deluge2qbit
     environment:
+      # --- Deluge Settings ---
       - DELUGE_HOST=deluge
       - DELUGE_PORT=58846
       - DELUGE_USER=admin
-      - 'DELUGE_PASS=DelugePassword'
-      - 'DELUGE_MIGRATE_LABELS=radarr-imported,sonarr-imported' # Labels to be considered for migration
+      - DELUGE_PASS=your_deluge_password # ⚠️ CHANGE THIS
+      - DELUGE_MIGRATE_LABELS=radarr-imported,sonarr-imported # Labels to be considered for migration
+      - DELUGE_REMOVE=true # Remove from Deluge after migration
+      # --- qBittorrent Settings ---
       - QBIT_HOST=qbittorrent
       - QBIT_PORT=8080
       - QBIT_USER=admin
-      - 'QBIT_PASS=QbittorrentPassword'
-      - 'QBIT_SAVE_PATH=/downloads/qbit' # Added this to avoid copy and delete, instead of move (when changing save path in qBittorrent)
+      - QBIT_PASS=your_qbit_password # ⚠️ CHANGE THIS
       - QBIT_SET_CATEGORY=true
       - QBIT_CATEGORY_MAP="radarr-imported=Movies,sonarr-imported=TV Shows"
-      - QBIT_ADD_TAGS=true # To add either custom tag (if defined) or deluge label as tag in qBittorrent
-      - QBIT_CUSTOM_TAGS=deluge2qbit,torrent-migrator
-      - 'QBIT_SKIP_EXTENSIONS=.nfo,.info,.txt,.jpg,.png,.exe,.sfv' # File extensions to be deleted and skipped from downloading in qBittorrent
+      - QBIT_ADD_TAGS=true # To add either custom tags (if defined) or deluge label as tag in qBittorrent
+      - QBIT_CUSTOM_TAGS=deluge2qbit,migrated
+      - QBIT_SAVE_PATH=/downloads/completed # Added this to avoid copy and delete, instead of move (when changing save path in qBittorrent)
+      - QBIT_SKIP_EXTENSIONS=.nfo,.txt,.jpg
       - QBIT_RESUME=true # Resume torrent after adding in qBittorrent
-      - DELUGE_REMOVE=true # Remove from Deluge after migration
-      ## Optional
+      # --- Optional ---
       - DELUGE_STATE_PATH=/deluge/state
       - TORRENT_FILE_DEST_PATH=/torrents
     volumes:
-      - '<torrent-file-save-path>:/torrents' # Add this if you want to save the torrent files on disk
-      - '<deluge-config-path>:/deluge'
-      - '<torrent-download-path>:/media/downloads/torrents'
+      # ⚠️ CHANGE THESE HOST PATHS
+      # Path where Deluge stores its state files (e.g., torrents, logs)
+      - /path/to/your/deluge/config:/deluge
+      # Path where your torrent data is stored. This MUST be the same path qBittorrent uses.
+      - /path/to/your/downloads:/downloads/completed
+      # A temporary path to store .torrent files during migration
+      - ./torrents:/torrents
     restart: unless-stopped

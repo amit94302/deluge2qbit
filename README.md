@@ -156,7 +156,7 @@ To run the script locally for development:
 1. Clone the repository:
 
    ```bash
-   git clone https://git.bharper.top/me/deluge2qbit.git
+   git clone https://git.sharez.vip/me/deluge2qbit.git
    cd deluge2qbit
    ```
 
@@ -180,7 +180,7 @@ To run the script locally for development:
 Image is built and pushed to:
 
 - Docker Hub: [`amit94302/deluge2qbit`](https://hub.docker.com/r/amit94302/deluge2qbit)
-- GitHub Container Registry: `ghcr.io/amit94302/deluge2qbit`
+- GitHub Container Registry: [`ghcr.io/amit94302/deluge2qbit`](https://github.com/users/amit94302/packages/container/package/deluge2qbit)
 
 Trigger: On push to `main`
 

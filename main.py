@@ -95,7 +95,7 @@ def add_torrent_to_qbit(qbt, torrent_file, save_path, deluge_label, name):
   files = qbt.torrents_files(torrent.hash)
   file_ids_to_skip = [f.index for f in files if any(f.name.lower().endswith(ext) for ext in config.QBIT_SKIP_EXTENSIONS)]
   if file_ids_to_skip:
-    logging.info(f"❌ Skipping {len(file_ids_to_skip)} files with unwanted extensions.")
+    logging.info(f"❌ Skipping {len(file_ids_to_skip)} file(s) with unwanted extensions.")
     qbt.torrents_file_priority(torrent.hash, file_ids=file_ids_to_skip, priority=0)
 
   # --- Resume torrent ---

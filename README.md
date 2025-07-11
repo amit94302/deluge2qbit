@@ -56,7 +56,7 @@ services:
       - QBIT_USER=admin
       - QBIT_PASS=your_qbit_password # ⚠️ CHANGE THIS
       - QBIT_SET_CATEGORY=true
-      - QBIT_CATEGORY_MAP="radarr-imported=Movies,sonarr-imported=TV Shows"
+      - 'QBIT_CATEGORY_MAP=radarr-imported=Movies,sonarr-imported=TV Shows'
       - QBIT_ADD_TAGS=true
       - QBIT_CUSTOM_TAGS=deluge2qbit,migrated
       - QBIT_SAVE_PATH=/downloads/completed

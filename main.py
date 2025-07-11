@@ -84,6 +84,7 @@ def add_torrent_to_qbit(qbt, torrent_file, save_path, deluge_label, name):
     logging.info(f"🏷️ Setting category '{qbit_category}' for label '{deluge_label}'")
 
   qbt.torrents_add(**add_args)
+  logging.info(f"✅ Added: {name}")
 
   # --- Wait for torrent to appear in qBittorrent ---
   torrent = wait_for_torrent(qbt, name)
@@ -104,8 +105,6 @@ def add_torrent_to_qbit(qbt, torrent_file, save_path, deluge_label, name):
     logging.info(f"🚀 Resumed in qBittorrent: {name}")
   else:
     logging.info(f"⏸️ Skipped resume (QBIT_RESUME=false): {name}")
-
-  logging.info(f"✅ Added: {name}")
 
 def wait_for_torrent(qbt, name, timeout=30):
   """

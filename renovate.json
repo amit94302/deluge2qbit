@@ -1,11 +1,18 @@
 {
-  "extends": ["config:base"],
-  "docker": {
-    "enabled": true
-  },
+  "extends": [
+    "config:recommended"
+  ],
   "packageRules": [
     {
-      "matchManagers": ["pip_requirements"],
+      "matchCategories": [
+        "docker"
+      ],
+      "enabled": true
+    },
+    {
+      "matchManagers": [
+        "pip_requirements"
+      ],
       "enabled": true
     }
   ]

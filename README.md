@@ -156,7 +156,7 @@ To run the script locally for development:
 1. Clone the repository:
 
    ```bash
-   git clone https://git.sharez.vip/me/deluge2qbit.git
+   git clone https://git.orora.vip/me/deluge2qbit.git
    cd deluge2qbit
    ```
 

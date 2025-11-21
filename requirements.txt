@@ -1,2 +1,2 @@
 deluge-client==1.10.2
-qbittorrent-api==2025.11.0
+qbittorrent-api==2025.11.1
